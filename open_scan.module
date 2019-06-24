@@ -1,0 +1,204 @@
+<?php
+
+/**
+ * @file
+ * Module file for open_scan
+ */
+
+/**
+ * Webservice @ http://datawell-scan-service.{fbstest,boblebad,cisterne}.svc.cloud.dbc.dk/
+ * @see: https://dbcjira.atlassian.net/wiki/spaces/TeamSearch/pages/658833745/Datawell+-+Scan
+ * @note: Profiles are currently hardcoded in the webservice as "190102/danbib".
+ **/
+
+ define('SCAN_DEFAULT_AGENCY', '190102');
+ define('SCAN_DEFAULT_PROFILE', 'danbib');
+ define('SCAN_DEFAULT_REGISTER', 'scan.default');
+
+/**
+ * Implements hook_ting_client_webservice (@see ting_client.module)
+ *
+ * @return array
+ */
+function open_scan_ting_client_webservice() {
+  $ret = array();
+  $ret['datawellScan']['class'] = 'datawellScanRequest';
+  $ret['datawellScan']['url']   = 'datawellScanRequest_url';
+  return $ret;
+}
+
+/**
+ * Scan datawell index
+ *
+ * @param string $term
+ * @param integer $count
+ * @param string $continue
+ * @param string $tracking_id
+ *
+ * @return array
+ *
+ * @throws \TingClientException
+ */
+function open_scan_scanRequest(
+  $term, $count = 10, $continue = FALSE, $tracking_id = NULL) {
+
+  $agency_id = variable_get('datawellScan_agency', SCAN_DEFAULT_AGENCY);
+  $profile   = variable_get('datawellScan_profile', SCAN_DEFAULT_PROFILE);
+  $register  = variable_get('datawellScan_register', SCAN_DEFAULT_REGISTER);
+
+  $response = _open_scan_client_scanRequest(
+    $agency_id, $profile, $term, $register, $count, $continue, $tracking_id
+  );
+
+  $scan_result = _open_scan_parse_scanRequest($response);
+
+  return $scan_result;
+}
+
+
+/**
+ * Do datawell scan request
+ *
+ * @param string $agency_id
+ * @param string $profile
+ * @param string $term
+ * @param string $register
+ * @param integer $count
+ * @param string $continue
+ * @param string $tracking_id
+ *
+ * @return array
+ *
+ * @throws \TingClientException
+ */
+function _open_scan_client_scanRequest(
+  $agency_id, $profile, $term, $register, $count, $continue, $tracking_id) {
+
+  $params = array(
+    'action'         => 'datawellScan',
+    'agencyId'       => $agency_id,
+    'profile'        => $profile,
+    'term'           => $term,
+    'register'       => $register,
+    'count'          => $count,
+    'continue'       => $continue,
+    'trackingId'     => $tracking_id,
+  );
+
+  $response = NULL;
+  $params['curlOptions'] = array(
+    CURLOPT_HTTPHEADER => array(
+      'Content-type: application/json',
+      'Accept: application/json'
+    )
+  );
+
+  try {
+    $client = new ting_client_class();
+    $response = $client->do_request(
+      'datawellScan',
+      $params
+    );
+  } catch (Exception $e) {
+    watchdog('open_scan', $e->getMessage(), array(), WATCHDOG_ERROR, NULL);
+    return NULL;
+  }
+
+  return $response;
+}
+
+
+/**
+ * Parse a datawell scan request
+ *
+ * @param object $response
+ *
+ * @return boolean|array
+ */
+function _open_scan_parse_scanRequest($response) {
+  // ting_client returns false if something goes wrong
+  if ($response === FALSE) {
+    return FALSE;
+  }
+
+  if ( isset($response->error) ) {
+    $err = filter_var($response->error, FILTER_SANITIZE_NUMBER_INT);
+    $errMsg = (is_object(json_decode($response->errorMessage)))
+      ? $response->errorMessage
+      : filter_var($response->errorMessage, FILTER_SANITIZE_STRING);
+    watchdog('open_scan', 'Scan error: %err : %errMsg.', array('%err' => $err, '%errMsg' => $errMsg), WATCHDOG_ERROR);
+    drupal_set_message(
+      t('LABEL_SCAN_ERROR', array(), array('context' => 'open_scan')),
+      'error'
+    );
+    return FALSE;
+  }
+
+  return $response;
+
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter (ting_client_admin_webservices_settings)
+ * add a field to webservice client settings
+ *
+ * @param $form
+ * @param $form_state
+ */
+function open_scan_form_ting_client_admin_webservices_settings_alter(&$form, &$form_state) {
+
+  // don't start by defining the fieldset as an array. This way other modules can extend the fieldset.
+  $form['datawellScan']['#type'] = 'fieldset';
+  $form['datawellScan']['#title'] = t('scan settings');
+  $form['datawellScan']['#description'] = t('Client for datawellScan, a service that can be used scanning openSearch indexes.');
+  $form['datawellScan']['#collapsible'] = TRUE;
+  $form['datawellScan']['#collapsed'] = TRUE;
+  $form['datawellScan']['#tree'] = FALSE;
+
+  $form['datawellScan']['datawellScanRequest_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('datawellScan URL'),
+    '#description' => t('URL to datawellScan: <a href="!link">!link</a>', array('!link' => 'http://datawell-scan-service.{fbstest,boblebad,cisterne}.svc.cloud.dbc.dk/api/scan')),
+    '#required' => TRUE,
+    '#default_value' => variable_get('datawellScanRequest_url', FALSE),
+  );
+
+  $form['datawellScan']['datawellScan_agency'] = array(
+    '#type' => 'textfield',
+    '#title' => t('datawell scan agency'),
+    '#description' => t(
+      'Agency id for scan request.'
+    ),
+    '#default_value' => variable_get('datawellScan_agency', SCAN_DEFAULT_AGENCY),
+  );
+
+  $form['datawellScan']['datawellScan_profile'] = array(
+    '#type' => 'textfield',
+    '#title' => t('datawell scan profile'),
+    '#description' => t(
+      'Search profile, see: VIP -> J. Brøndprofiler'
+    ),
+    '#default_value' => variable_get('datawellScan_profile', SCAN_DEFAULT_PROFILE),
+  );
+
+  $form['datawellScan']['datawellScan_register'] = array(
+    '#type' => 'textfield',
+    '#title' => t('datawell scan register'),
+    '#description' => t(
+      'Scan register. Default "' . SCAN_DEFAULT_REGISTER . '". Possible values, see: <a href="!link">!link</a>',
+      array('!link' => 'https://dbcjira.atlassian.net/wiki/spaces/TeamSearch/pages/658833745/Datawell+-+Scan')
+    ),
+    '#default_value' => variable_get('datawellScan_register', SCAN_DEFAULT_REGISTER),
+  );
+
+}
+
+/**
+ * Implements hook_how_r_u()
+ *
+ * @return array
+ */
+function open_scan_how_r_u() {
+  return array('datawellScan' => variable_get('datawellScanRequest_url'));
+}

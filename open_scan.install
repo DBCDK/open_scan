@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * @file
+ * Install file for open_scan
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function open_scan_schema() {
+  $schema['cache_open_scan'] = drupal_get_schema_unprocessed('system', 'cache');
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function open_scan_install() {
+  /**
+   * Make error codes translatable right away.
+   */
+  t('LABEL_SCAN_ERROR', array(), array('context' => 'open_scan'));
+}
