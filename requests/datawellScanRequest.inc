@@ -111,9 +111,6 @@ class datawellScanRequest extends TingClientRequest Implements ITingClientReques
     return 'cache_open_scan';
   }
 
-
-  /* Implementation of TingClientRequest */
-
   /*
    * Implements TingClientRequest::setAction.
    */
@@ -129,20 +126,6 @@ class datawellScanRequest extends TingClientRequest Implements ITingClientReques
   }
 
   /*
-   * Extend TingClientRequest::getRequest to avoid xsd validation error.
-   */
-  public function getRequest() {
-    $params = array('curlOptions', 'requestParameters');
-    foreach ($params as $parameter) {
-      $getter = 'get' . ucfirst($parameter);
-      if ($value = $this->$getter()) {
-        $this->setParameter($parameter, $value);
-      }
-    }
-    return $this;
-  }
-
-  /*
    * Extend TingClientRequest::getClientType to use REST client.
    */
   public function getClientType() {
@@ -153,6 +136,14 @@ class datawellScanRequest extends TingClientRequest Implements ITingClientReques
    * Implements TingClientRequest::processResponse.
    */
   public function processResponse(stdClass $response) {
+    // ting_client returns false if something goes wrong
+    if ($response === FALSE) {
+      return (object) array(
+        'error' => '400',
+        'errorMessage' => 'Null response from ting_client:scan.',
+        'result' => (object) array()
+      );
+    }
     return $response;
   }
 }

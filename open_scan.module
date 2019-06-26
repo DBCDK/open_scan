@@ -50,7 +50,7 @@ function open_scan_scanRequest(
     $agency_id, $profile, $term, $register, $count, $continue, $tracking_id
   );
 
-  $scan_result = _open_scan_parse_scanRequest($response);
+  $scan_result = _open_scan_process_scanRequest($response);
 
   return $scan_result;
 }
@@ -115,14 +115,10 @@ function _open_scan_client_scanRequest(
  *
  * @return boolean|array
  */
-function _open_scan_parse_scanRequest($response) {
-  // ting_client returns false if something goes wrong
-  if ($response === FALSE) {
-    return FALSE;
-  }
-
+function _open_scan_process_scanRequest($response) {
   if ( isset($response->error) ) {
     $err = filter_var($response->error, FILTER_SANITIZE_NUMBER_INT);
+    // 404 return html page, otherwise we get a request object.
     $errMsg = (is_object(json_decode($response->errorMessage)))
       ? $response->errorMessage
       : filter_var($response->errorMessage, FILTER_SANITIZE_STRING);
@@ -133,9 +129,7 @@ function _open_scan_parse_scanRequest($response) {
     );
     return FALSE;
   }
-
   return $response;
-
 }
 
 
