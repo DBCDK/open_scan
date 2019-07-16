@@ -1,0 +1,10 @@
+name = datawell-scan client
+description = Client for the datawell-scan webservice. Datawell-Scan is a product designed for scanning a SolR field (SolR terms lists by index-order) and filtering against a profile.
+core = 7.x
+version = 7.x-1.0
+package = OpenLibrary
+
+files[] = requests/datawellScanRequest.inc
+files[] = test/open_scan.test
+
+dependencies[] = ting_client

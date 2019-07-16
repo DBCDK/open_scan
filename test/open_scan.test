@@ -1,0 +1,51 @@
+<?php
+
+/**
+ * @file
+ * Test case for scan client.
+ */
+
+class openScanTestCase extends DrupalWebTestCase {
+
+  protected $profile = 'testing';
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Open Scan : Scan test'),
+      'description' => t('Check if parsing a scanRequest return a valid array of index entries.'),
+      'group' => t('TingClient requests'),
+    );
+  }
+
+  public function setUp() {
+    parent::setUp(
+      array(
+        'open_scan',
+      )
+    );
+    menu_rebuild();
+  }
+
+  public function tearDown(){
+    parent::tearDown();
+  }
+
+  public function testRunner() {
+    $this->_test_open_recommender_parse_response();
+  }
+
+  public function _test_open_recommender_parse_response() {
+    try {
+      $response = file_get_contents(drupal_get_path('module', 'open_scan') . '/test/response/response.200.json');
+      $response = json_decode($response);
+      $response = _open_scan_parse_scanRequest($response);
+      $this->assertTrue($response->result->continueAfter == 'foo angelina', 'continueAfter: "foo angelina"');
+      $this->assertTrue($response->result->terms[0]->term == 'foo', 'First element term is "foo"');
+      $this->assertTrue($response->result->terms[9]->term == 'foo angelina', 'Last element term is "foo angelina"');
+      $this->assertTrue(sizeof($response->result->terms) == 10, '10 elements in response->result.');
+    } catch (Exception $e) {
+      $this->fail(print_r($e->getMessage(),1));
+    }
+  }
+
+}
