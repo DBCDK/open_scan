@@ -31,6 +31,7 @@ function open_scan_ting_client_webservice() {
  * Scan datawell index
  *
  * @param string $term
+ * @param string $register
  * @param integer $count
  * @param string $continue
  * @param string $tracking_id
@@ -40,11 +41,13 @@ function open_scan_ting_client_webservice() {
  * @throws \TingClientException
  */
 function open_scan_scanRequest(
-  $term, $count = 10, $continue = FALSE, $tracking_id = NULL) {
+  $term, $register = NULL, $count = 10, $continue = FALSE, $tracking_id = NULL) {
 
   $agency_id = variable_get('datawellScan_agency', SCAN_DEFAULT_AGENCY);
   $profile   = variable_get('datawellScan_profile', SCAN_DEFAULT_PROFILE);
-  $register  = variable_get('datawellScan_register', SCAN_DEFAULT_REGISTER);
+  if (empty($register)) {
+    $register  = variable_get('datawellScan_register', SCAN_DEFAULT_REGISTER);
+  }
 
   $response = _open_scan_client_scanRequest(
     $agency_id, $profile, $term, $register, $count, $continue, $tracking_id
@@ -116,18 +119,21 @@ function _open_scan_client_scanRequest(
  * @return boolean|array
  */
 function _open_scan_process_scanRequest($response) {
+  if (empty($response)) {
+    return (object) array(
+      'error' => 500,
+      'errorMessage' => 'Scan error: No resonse.',
+      'result' => array('continueAfter' => NULL, 'terms' => array())
+    );
+  }
   if ( isset($response->error) ) {
     $err = filter_var($response->error, FILTER_SANITIZE_NUMBER_INT);
-    // 404 return html page, otherwise we get a request object.
+    // 404 error return a html page. Otherwise we get a request object.
     $errMsg = (is_object(json_decode($response->errorMessage)))
       ? $response->errorMessage
       : filter_var($response->errorMessage, FILTER_SANITIZE_STRING);
     watchdog('open_scan', 'Scan error: %err : %errMsg.', array('%err' => $err, '%errMsg' => $errMsg), WATCHDOG_ERROR);
-    drupal_set_message(
-      t('LABEL_SCAN_ERROR', array(), array('context' => 'open_scan')),
-      'error'
-    );
-    return FALSE;
+    return $response;
   }
   return $response;
 }
